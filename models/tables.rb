@@ -26,7 +26,7 @@ DB.create_table?  :files do
   unique      [:size, :sha2_512]
 end
 
-DB.create_table?  :revisions do
+DB.create_table?  :commits do
   primary_key :id
   foreign_key :index_id
   String      :rid          , null: false   , text: false , fixed: true , size: 128 , index: true
@@ -37,7 +37,7 @@ end
 
 DB.create_table?  :objects do
   primary_key :id
-  foreign_key :revision_id
+  foreign_key :commit_id
   foreign_key :file_id
   String      :name         , null: true    , text: true
   String      :path         , null: true    , text: true

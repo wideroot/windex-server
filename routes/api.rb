@@ -23,38 +23,38 @@ end
 post '/push/:name' do |name|
   user = authenticate!
   begin
-    revisions = JSON.parse(params[:revisions])
+    commits = JSON.parse(params[:commits])
   rescue => ex
-    halt 400, (te: :invalid_push, {message: "Invalid revisions field'"})
+    halt 400, (te: :invalid_push, {message: "Invalid commits field'"})
   end
 
   pushed_at = Sequel.datetime_class.now
 
-  index = Indices.first_or_create(user_id: user.id, name: index_name) do |index|
-    # TODO improve parameters checking...
-    index.user_is_anon    = params[:user_is_anon] == 'true'
-    index.hidden          = params[:hidden_inted] == 'true'
-    index.show_pushed_at  = params[:show_pushed_at] == 'true'
-    index.hidden          = params[:show_commited_at] == 'true'
-    index.created_at      = pushed_at
-  end
-
-  # TODO catch exceptions...
-  added_revisions = false
   DB.transaction do
-    revisions.each do |revision|
+    index = Indices.first_or_create(user_id: user.id, name: index_name) do |index|
+      # TODO improve parameters checking...
+      index.user_is_anon    = params[:user_is_anon] == 'true'
+      index.hidden          = params[:hidden_inted] == 'true'
+      index.show_pushed_at  = params[:show_pushed_at] == 'true'
+      index.hidden          = params[:show_commited_at] == 'true'
+      index.created_at      = pushed_at
+    end
+
+    # TODO catch exceptions...
+    added_commits = false
+    commits.each do |commit|
       # if user try to upload pushed commits, ignore
-      revision = Revision.first_or_new(index_id: index.id, rid: revision['rid'])
-      next if !revision.new? && !added_revisions
-      added_revisions = true
+      commit = Wix::Commit.first_or_new(index_id: index.id, rid: commit['rid'])
+      next if !commit.new? && !added_commits
+      added_commits = true
       # TODO improve this logic...
       # TODO use a first_or_insert instead first_or_new...
 
-      revision.commited_at = Time.new(revision['commited_at'])
-      revision.pushed_at = pushed_at
-      revision.save!
+      commit.commited_at = Time.new(commit['commited_at'])
+      commit.pushed_at = pushed_at
+      commit.save!
 
-      revisions['objects'].each do |object|
+      commits['objects'].each do |object|
         # get file object references, creating a new if needed
         # TODO use a first_or_insert instead first_or_new...
         file = Wix::File.first_or_create(
@@ -63,7 +63,7 @@ post '/push/:name' do |name|
         )
         object_id = Wix::Object.insert(
           file_id: file.id,
-          revision_id: revision.id,
+          commit_id: commit.id,
           index_id: file.id,
           name: object['name'],
           path: object['path'],
@@ -113,21 +113,25 @@ end
 get '/user/:user/show/:index' do |user, index|
   # TODO force check user
   request.path_info = "/index/#{index}"
+  pass
 end
 
 get '/user/:user/commits/:index' do |user, index|
   # TODO force check user
   request.path_info = "/commits/#{index}"
+  pass
 end
 
-get '/user/:user/show/:index/:revision' do |user, index, revision|
+get '/user/:user/show/:index/:commit' do |user, index, commit|
   # TODO force check user, index
-  request.path_info = "/revision/#{revision}"
+  request.path_info = "/commit/#{commit}"
+  pass
 end
 
-get '/user/:user/show/:index/:revision/:object' do |user, index, revision, object|
-  # TODO force check user, index, revision
+get '/user/:user/show/:index/:commit/:object' do |user, index, commit, object|
+  # TODO force check user, index, commit
   request.path_info = "/object/#{object}"
+  pass
 end
 
 
@@ -155,13 +159,20 @@ end
 get '/index/:index_id' do |index_id|
   index = Wix::Object[index_id]
   halt 404 unless index
-  request.path_info = '/snapshot/#{index.head.id}'
+  request.path_info = "/snapshot/#{index.head_id}"
+  pass
 end
 
-get '/revision/:revision_id' do |revision_id|
-  revision = Wix::Object[revision_id]
-  halt 404 unless revision
-  te :revision, {revision: revision}
+get '/snapshot/:commit_id' do |commit_id|
+  commit = Wix::Object[commit_id]
+  halt 404 unless commit
+  te :snapshot, {commit: commit}
+end
+
+get '/commit/:commit_id' do |commit_id|
+  commit = Wix::Object[commit_id]
+  halt 404 unless commit
+  te :commit, {commit: commit}
 end
 
 
@@ -169,14 +180,22 @@ end
 
 get '/users' do
   request.path_info = '/users/0/100'
+  pass
 end
-get '/users/:from/:to' do |from, to|
+get '/users/:from/:limit' do |from, limit|
   from = from.to_i
-  to = [to.to_i, MAX_USER_TO].max
+  limit = [limit.to_i, MAX_USER_TO].max
+  users = Wix::User.limit(limit).offset(from)
+  te :users, {users: users}
 end
 
 get '/files' do
   request.path_info = '/files/0/100'
+  pass
+end
+get '/files/:from/:limit' do |from, limit|
   from = from.to_i
-  to = [to.to_i, MAX_FILES_TO].max
+  limit = [limit.to_i, MAX_FILES_TO].max
+  files = Wix::File.limit(limit).offset(from)
+  te :files, {files: files}
 end

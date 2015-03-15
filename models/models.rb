@@ -13,7 +13,7 @@ class File < Sequel::Model
   set_primary_key :id
 end
 
-class Revision < Sequel::Model
+class Commit < Sequel::Model
   set_primary_key :id
 end
 
@@ -31,11 +31,15 @@ end
 
 class Index
   many_to_one     :user
-  one_to_many     :revisions
+  one_to_many     :commits
+  def head_id
+    Wix::Commit.select(:id).where(index_id: id).last
+  end
   def head
-    # TODO do it in sql if revisions was not load...?
-    # TODO is revision.last enough...?
-    revisions.max { |revision| revision.id }
+    # TODO do it in sql if commits was not load...?
+    # TODO is commits.last enough...?
+    # commits.max { |commit| commit.id }
+    Wix::Commit.where(index_id: id).last
   end
 end
 
@@ -43,14 +47,14 @@ class File
   one_to_many     :objects
 end
 
-class Revision
+class Commit
   many_to_one     :index
   many_to_one     :objects
 end
 
 class Object
   many_to_one     :file
-  many_to_one     :revision
+  many_to_one     :commit
 end
 
 
