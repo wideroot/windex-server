@@ -11,10 +11,14 @@ DB.create_table?  :indices do
   primary_key :id
   foreign_key :user_id
   String      :name         , null: false   , text: false
-  TrueClass   :user_is_anon , null: false
-  TrueClass   :hidden_index , null: false
-  TrueClass   :show_pushed_at   , null: false
-  TrueClass   :show_commited_at , null: false
+  TrueClass   :anon         , null: false
+  TrueClass   :hidden       , null: false
+  TrueClass   :filename     , null: false
+  TrueClass   :path         , null: false
+  TrueClass   :push_time    , null: false
+  TrueClass   :commit_time  , null: false
+  TrueClass   :message      , null: false
+  TrueClass   :file_time    , null: false
   Time        :created_at   , null: false
 end 
 
@@ -31,6 +35,7 @@ DB.create_table?  :commits do
   foreign_key :index_id
   String      :rid          , null: false   , text: false , fixed: true , size: 128 , index: true
     # rid = sha2_512(commit_time)
+  String      :message      , null: true    , text: true
   Time        :commited_at  , null: false
   Time        :pushed_at    , null: false
 end

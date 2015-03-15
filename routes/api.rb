@@ -44,12 +44,16 @@ post '/push/:name' do |name|
     added_commits = false
     commits.each do |commit|
       # if user try to upload pushed commits, ignore
-      commit = Wix::Commit.first_or_new(index_id: index.id, rid: commit['rid'])
+      commit = Wix::Commit.first_or_new(
+        index_id: index.id,
+        rid: commit['rid'],
+      )
       next if !commit.new? && !added_commits
       added_commits = true
       # TODO improve this logic...
       # TODO use a first_or_insert instead first_or_new...
 
+      commit.message = commit['message']
       commit.commited_at = Time.new(commit['commited_at'])
       commit.pushed_at = pushed_at
       commit.save!
