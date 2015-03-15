@@ -32,6 +32,5 @@ get '/' do
 end
 
 not_found do
-  # TODO fins a nice way to do
-  # te :not_found if request.body == '<h1>Not Found</h1>'
+  [404, (te :not_found)]
 end
