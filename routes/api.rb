@@ -25,7 +25,7 @@ post '/push/:name' do |name|
   begin
     commits = JSON.parse(params[:commits])
   rescue => ex
-    halt 400, (te: :invalid_push, {message: "Invalid commits field'"})
+    halt 400, (te :invalid_push, {message: "Invalid commits field'"})
   end
 
   pushed_at = Sequel.datetime_class.now
