@@ -45,13 +45,17 @@ post '/push/:name' do |name|
       message:      params['messages'].to_b,
       file_time:    params['file_time'].to_b,
     ).last
-    if index && index.id == Indices.select(:id).last
-      index_id = index.id
-      index.removed = true
-      index.removed_at = pushed_at
+    if index
+      if index.id == Indices.select(:id).last
+        index_id = index.id
+        index.removed = true
+        index.removed_at = pushed_at
+      else
+        index.updated_at = pushed_at
+      end
       index.save
+      index = nil
     end
-    index = nil
     if index_id == nil
       index_id = Indices.select(:id).where(
         user_id:      user.id,
@@ -66,6 +70,7 @@ post '/push/:name' do |name|
         message:      params['messages'].to_b,
         file_time:    params['file_time'].to_b,
         created_at:   pushed_at,
+        updated_at:   pushed_at,
         removed_at:   nil,
       ).last
     end

@@ -21,6 +21,7 @@ DB.create_table?  :indices do
   TrueClass   :message      , null: false
   TrueClass   :file_time    , null: false
   Time        :created_at   , null: false
+  Time        :updated_at   , null: false
   Time        :removed_at   , null: true
 end 
 
