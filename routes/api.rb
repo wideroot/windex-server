@@ -31,13 +31,43 @@ post '/push/:name' do |name|
   pushed_at = Sequel.datetime_class.now
 
   DB.transaction do
-    index = Indices.first_or_create(user_id: user.id, name: index_name) do |index|
-      # TODO improve parameters checking...
-      index.user_is_anon    = params[:user_is_anon] == 'true'
-      index.hidden          = params[:hidden_inted] == 'true'
-      index.show_pushed_at  = params[:show_pushed_at] == 'true'
-      index.hidden          = params[:show_commited_at] == 'true'
-      index.created_at      = pushed_at
+    # TODO refactor
+    index = Indices.where(
+      user_id:      user.id,
+      name:         index_name,
+      removed:      false,
+      anon:         params['anon'].to_b,
+      hidden:       params['hidden'].to_b,
+      filename:     params['filename'].to_b,
+      path:         params['path'].to_b,
+      push_time:    params['push_time'].to_b,
+      commit_time:  params['commit_time'].to_b,
+      message:      params['messages'].to_b,
+      file_time:    params['file_time'].to_b,
+    ).last
+    if index && index.id == Indices.select(:id).last
+      index_id = index.id
+      index.removed = true
+      index.removed_at = pushed_at
+      index.save
+    end
+    index = nil
+    if index_id == nil
+      index_id = Indices.select(:id).where(
+        user_id:      user.id,
+        name:         index_name,
+        removed:      false,
+        anon:         params['anon'].to_b,
+        hidden:       params['hidden'].to_b,
+        filename:     params['filename'].to_b,
+        path:         params['path'].to_b,
+        push_time:    params['push_time'].to_b,
+        commit_time:  params['commit_time'].to_b,
+        message:      params['messages'].to_b,
+        file_time:    params['file_time'].to_b,
+        created_at:   pushed_at,
+        removed_at:   nil,
+      ).last
     end
 
     # TODO catch exceptions...
@@ -45,7 +75,7 @@ post '/push/:name' do |name|
     commits.each do |commit|
       # if user try to upload pushed commits, ignore
       commit = Wix::Commit.first_or_new(
-        index_id: index.id,
+        index_id: index_id,
         rid: commit['rid'],
       )
       next if !commit.new? && !added_commits
@@ -68,7 +98,6 @@ post '/push/:name' do |name|
         object_id = Wix::Object.insert(
           file_id: file.id,
           commit_id: commit.id,
-          index_id: file.id,
           name: object['name'],
           path: object['path'],
           created_at: object['created_at'],
@@ -115,19 +144,19 @@ get '/user/:user/private_indices' do |user|
 end
 
 get '/user/:user/show/:index' do |user, index|
-  # TODO force check user
+  # TODO CALCULATE INDEX NAME... last...
   request.path_info = "/index/#{index}"
   pass
 end
 
 get '/user/:user/commits/:index' do |user, index|
-  # TODO force check user
+  # TODO CALCULATE INDEX NAME...
   request.path_info = "/commits/#{index}"
   pass
 end
 
 get '/user/:user/show/:index/:commit' do |user, index, commit|
-  # TODO force check user, index
+  # TODO check...
   request.path_info = "/commit/#{commit}"
   pass
 end

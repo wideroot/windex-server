@@ -10,6 +10,7 @@ end
 DB.create_table?  :indices do
   primary_key :id
   foreign_key :user_id
+  TrueClass   :removed      , null: false
   String      :name         , null: false   , text: false
   TrueClass   :anon         , null: false
   TrueClass   :hidden       , null: false
@@ -20,6 +21,7 @@ DB.create_table?  :indices do
   TrueClass   :message      , null: false
   TrueClass   :file_time    , null: false
   Time        :created_at   , null: false
+  Time        :removed_at   , null: true
 end 
 
 DB.create_table?  :files do

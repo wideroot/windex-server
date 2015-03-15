@@ -1,6 +1,10 @@
 require 'sinatra'
 require 'sinatra/r18n'
+
+# TODO force SSL, at least for the push...
+
 require_relative './db_connection.rb'
+
 
 configure do
   set :environment, ENVIRONMENT
@@ -19,5 +23,6 @@ configure :development do
   require 'sinatra/reloader'
   enable :reloader
 end
+
 
 require_relative './server.rb'
