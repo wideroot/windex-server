@@ -17,10 +17,6 @@ class Revision < Sequel::Model
   set_primary_key :id
 end
 
-class ObjectRevision < Sequel::Model
-  set_primary_key [:object_id, :revision_id]
-end
-
 class Object < Sequel::Model
   set_primary_key :id
   plugin :serialization, :json
@@ -37,6 +33,8 @@ class Index
   many_to_one     :user
   one_to_many     :revisions
   def head
+    # TODO do it in sql if revisions was not load...?
+    # TODO is revision.last enough...?
     revisions.max { |revision| revision.id }
   end
 end
@@ -47,11 +45,12 @@ end
 
 class Revision
   many_to_one     :index
+  many_to_one     :objects
 end
 
 class Object
   many_to_one     :file
-  many_to_one     :index
+  many_to_one     :revision
 end
 
 

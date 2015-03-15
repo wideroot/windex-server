@@ -35,34 +35,12 @@ DB.create_table?  :revisions do
   Time        :pushed_at    , null: false
 end
 
-DB.create_table?  :objects_revisions do
-  foreign_key :object_id
-  foreign_key :revision_id
-  primary_key [:object_id, :revision_id]
-end
-
 DB.create_table?  :objects do
   primary_key :id
+  foreign_key :revision_id
   foreign_key :file_id
-  foreign_key :index_id
-  String      :oid          , null: false   , text: false , fixed: true , size: 128 , index: true
-    # oid = sha2_512(index.username index.name file.size file.sha2_512 path)
   String      :name         , null: true    , text: true
   String      :path         , null: true    , text: true
     # JSON ['dir','dir','file']
   Time        :created_at   , null: true
-    # note create_at is not "reliable"
-    # it's a metadata added ad-hoc that doesn't fit into the
-    # snapshot <key, value> model wix uses.
-    # i.e.:
-    # > touch file
-    # > wix add file
-    # > wix commit ; wix push
-    # o1 = object of file
-    # > rm file
-    # > touch file
-    # > wix add file
-    # > wix commit ; wix push
-    # o2 = object of file
-    # o1.created_at == o2.created_at
 end

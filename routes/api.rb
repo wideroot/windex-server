@@ -2,7 +2,7 @@ def authenticate! message = nil
   @auth ||= Rack::Auth::Basic::Request.new(request.env)
   if @auth.provided? and @auth.basic? and @auth.credentials
     name, password = @auth.credentials
-    user = User.where(name: name, password: password).first
+    user = Wix::User.where(name: name, password: password).first
   end
   if user == nil
     headers['WWW-Authenticate'] = 'Basic realm="Restricted Area"'
@@ -53,32 +53,19 @@ post '/push/:name' do |name|
 
       revisions['objects'].each do |object|
         # get file object references, creating a new if needed
+        # TODO use a first_or_insert instead first_or_new...
         file = Wix::File.first_or_create(
           size: object['size'],
           sha2_512: object['sha2_512'],
         )
-        # look if the object was already pushed
-        last_object = Wix::Object.where(
-          index_id: index.id,
-          oid: object['oid'],
-        ).last
-        if  last_object != nil &&
-            # extra checks
-            last_object.file_id == file.id &&
-            last_object.name == object['name'] &&
-            last_object.path == object['path']
-          object_id = Wix::Object.insert(
-            file_id: file.id,
-            index_id: index.id,
-            oid: object['oid'],
-            name: object['name'],
-            path: object['path'],
-            created_at: object['created_at'],
-          )
-        end
-
-        # add object to the revision
-        DB[:objects_revisions].insert(revision_id: revision_id, object_id: object_id)
+        object_id = Wix::Object.insert(
+          file_id: file.id,
+          revision_id: revision.id,
+          index_id: file.id,
+          name: object['name'],
+          path: object['path'],
+          created_at: object['created_at'],
+        )
       end
     end
   end
