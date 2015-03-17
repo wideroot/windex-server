@@ -1,10 +1,3 @@
-get '/sign_out' do
-  $user = nil
-  redirect to '/', 303
-end
-
-
-
 get '/sign_in' do
   te :sign_in
 end

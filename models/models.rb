@@ -55,9 +55,6 @@ end
 class Object
   many_to_one     :file
   many_to_one     :commit
-  def created_at
-    Time.at(mtime)
-  end
 end
 
 

@@ -11,8 +11,4 @@ class String
   def truncate truncate_at
     length <= truncate_at ? dup : self[0, truncate_at]
   end
-
-  def to_b
-    self != 'false'
-  end
 end

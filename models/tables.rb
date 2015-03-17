@@ -30,7 +30,6 @@ DB.create_table?  :files do
   primary_key :id
   Integer     :size         , null: false
   String      :sha2_512     , null: false   , text: false , fixed: true , size: 128
-  Time        :created_at   , null: false
   unique      [:size, :sha2_512]
 end
 
@@ -40,7 +39,7 @@ DB.create_table?  :commits do
   String      :rid          , null: false   , text: false , fixed: true , size: 128 , index: true
     # rid = sha2_512(commit_time)
   String      :message      , null: true    , text: true
-  Time        :commited_at  , null: false
+  Time        :commited_at  , null: true
   Time        :pushed_at    , null: false
 end
 
@@ -51,6 +50,6 @@ DB.create_table?  :objects do
   String      :name         , null: true    , text: true
   String      :path         , null: true    , text: true
     # JSON ['dir','dir','file']
-  Integer     :mtime        , null: true
+  Time        :created_at   , null: true    # (mtime)
   TrueClass   :removed      , null: false
 end

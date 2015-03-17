@@ -1,5 +1,4 @@
-<h1>windex</h1>
-
-<pre>
-TODO
-</pre>
+<% require 'github/markup' %>
+<h1>README.md</h1>
+<hr />
+<%= file = './README.md' ; GitHub::Markup.render(file, File.read(file)) %>

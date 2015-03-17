@@ -1,3 +1,5 @@
+require 'pp'  # XXX
+require 'date'
 require 'ostruct'
 
 
@@ -27,10 +29,14 @@ end
 
 
 
+def api_request?
+  request.path_info.start_with? '/api/'
+end
+
 before do
   # TODO implement it
-  pass if request.path_info == '/sign_out'
   $user = nil
+  pass if request.path_info == '/sign_out' || api_request?
   puts session.inspect
   if session[:username]
     $user = Wix::User.first(username: session[:username])
@@ -46,5 +52,6 @@ not_found do
 end
 
 after do
+  pass if api_request?
   session[:username] = $user ? $user.username : nil
 end
