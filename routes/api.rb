@@ -35,33 +35,39 @@ post '/api/push/:index_name' do |index_name|
 end
 
 def push_commits user, index_name, commits
+  pp commits
   # whether we've added some commit in this push
   pushed_at = Time.now.utc
-  last_index = nil
-  added_commits = false
-
+  if commits.empty?
+    raise "Malformed push_file: commits is empty"
+  end
+  if commits.first['index_config'] == nil
+    raise "Malformed push_file: index_config not found in the first commit"
+  end
   DB.transaction do
+    # retrieve the last index (index config)
+    last_index = Wix::Index.where(
+        user_id:      user.id,
+        name:         index_name,
+        removed:      false,
+      )
+      .order_by(Sequel.desc(:id))
+      .first
+    added_commits = false
+
     commits.each do |commit|
-      # index stuff
+      # use the previous index if this commit doesn't have one
+      # note the first commit must have an index config
       ic = commit['index_config']
-      from_index_id = nil
-      if last_index
-        index = last_index
-      else
-        # retrieve the last index (index config)
-        index = Wix::Index.where(
-          user_id:      user.id,
-          name:         index_name,
-          removed:      false,
-        ).order_by(Sequel.desc(:id)).first
-      end
-      if index
+      index = last_index
+
+      # create a new index if needed
+      if index && ic
         if ic['force_new']
           # if there was an existent index and this commits is intended
           # to be the first one throw an error
           raise "Index already exists"
         end
-        from_index_id = index.id
         # check if we need to upload the index
         if index.anon != ic['anon'] ||
            index.hidden != ic['hidden'] ||
@@ -71,23 +77,24 @@ def push_commits user, index_name, commits
            index.commit_time != ic['commit_time'] ||
            index.message !=  ic['message'] ||
            index.file_time != ic['file_time']
-          # if not_update! flag and index config doesn't match raise an error
           if ic['force_no_update']
+            # if force_no_update and but ic doesn't match index raise an error
             raise "Index must be updateds"
           end
           index.removed = true
           index.removed_at = pushed_at
+          index.save
+          index = nil
+        else
+          index.updated_at = pushed_at
         end
-        index.updated_at = pushed_at
-        index.save
-        index = nil if index.removed
       end
       # create a new index (config) if needed
       if !index
         index = Wix::Index.create(
           user_id:      user.id,
           name:         index_name,
-          from_index_id:from_index_id,
+          from_index_id:last_index ? last_index.id : nil,
           removed:      false,
           anon:         ic['anon'],
           hidden:       ic['hidden'],
@@ -103,16 +110,18 @@ def push_commits user, index_name, commits
         )
       end
       last_index = index
+      warn "created new index #{index.id}"
 
+      # if user try to upload pushed commits, ignore
+      # otherwise create a new commit
       c = Wix::Commit.first_or_new(
         index_id: index.id,
         rid: commit['rid'],
       )
-      # if user try to upload pushed commits, ignore
       next if !c.new? && !added_commits
       added_commits = true
 
-      # save commit object
+      # and save commit object
       c.message = commit['message']
       c.commited_at = utc_time_at(commit['commited_at'])
       c.pushed_at = pushed_at
@@ -134,6 +143,7 @@ def push_commits user, index_name, commits
         )
       end
     end
+    last_index.save_changes  # updated_at can change
   end
 end
 
