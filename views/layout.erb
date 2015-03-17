@@ -3,6 +3,17 @@
     <title>windex</title>
   </head>
   <body>
+    <div>
+      <ul>
+        <% if $user %>
+          <li><a href="<%= url('/home') %>"><%= $user.username %></a></li>
+          <li><a href="<%= url('/sign_out') %>">Sign Out</a></li>
+        <% else %>
+          <li><a href="<%= url('/sign_in') %>">Sign In</a></li>
+          <li><a href="<%= url('/sign_up') %>">Sign Up</a></li>
+        <% end %>
+      </ul>
+    </div>
     <%= yield %>
   </body>
 </html>

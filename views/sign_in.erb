@@ -1,0 +1,19 @@
+<h1>Sign In</h1>
+
+<% if resp[:error_message] %>
+  <p><h2><%= resp[:error_message] %></h2></p>
+<% end %>
+
+<form action="<%= url('/sign_in') %>" method="post">
+  <p> 
+    <label for="username">Username</label>
+    <input type="text" name="username" placeholder="Username" />
+  </p>
+  <p> 
+    <label for="password">Password</label>
+    <input type="password" name="password" placeholder="Password" />
+  </p>
+  <p> 
+    <input type="submit" value="Sign In" />
+  </p>
+</form>

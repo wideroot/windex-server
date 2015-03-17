@@ -27,10 +27,24 @@ end
 
 
 
+before do
+  # TODO implement it
+  pass if request.path_info == '/sign_out'
+  $user = nil
+  puts session.inspect
+  if session[:username]
+    $user = Wix::User.first(username: session[:username])
+  end
+end
+
 get '/' do
   te :index
 end
 
 not_found do
   [404, (te :not_found)]
+end
+
+after do
+  session[:username] = $user ? $user.username : nil
 end

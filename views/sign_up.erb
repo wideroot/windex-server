@@ -1,0 +1,27 @@
+<h1>Sign Up</h1>
+
+<% if resp.error_message %>
+  <p><h2><%= resp.error_message %></h2></p>
+<% end %>
+
+<form action="<%= url('/sign_up') %>" method="post">
+  <p> 
+    <label for="username">Username</label>
+    <input type="text" name="username" placeholder="Username" />
+  </p>
+  <p> 
+    <label for="password">Password</label>
+    <input type="password" name="password" placeholder="Password" />
+  </p>
+  <p> 
+    <label for="email">Email</label>
+    <input type="text" name="email" placeholder="email@domain.com" />
+  </p>
+  <p> 
+    <label for="secret">Secret</label>
+    <input type="text" name="secret" placeholder="Secret" />
+  </p>
+  <p> 
+    <input type="submit" value="Sign In" />
+  </p>
+</form>

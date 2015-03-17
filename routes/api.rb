@@ -20,64 +20,87 @@ end
 
 
 
-post '/push/:name' do |name|
+# TODO post '/close_index/:index_name' do |index_name|
+# end
+
+post '/push/:index_name' do |index_name|
   user = authenticate!
   begin
-    commits = JSON.parse(params[:commits])
+    commits = JSON.parse(params[:push_file])
   rescue => ex
     halt 400, (te :invalid_push, {message: "Invalid commits field'"})
   end
 
   pushed_at = Sequel.datetime_class.now
+  last_index = nil
 
   DB.transaction do
-    # TODO refactor
-    index = Indices.where(
-      user_id:      user.id,
-      name:         index_name,
-      removed:      false,
-      anon:         params['anon'].to_b,
-      hidden:       params['hidden'].to_b,
-      filename:     params['filename'].to_b,
-      path:         params['path'].to_b,
-      push_time:    params['push_time'].to_b,
-      commit_time:  params['commit_time'].to_b,
-      message:      params['messages'].to_b,
-      file_time:    params['file_time'].to_b,
-    ).last
-    if index
-      if index.id == Indices.select(:id).last
-        index_id = index.id
-        index.removed = true
-        index.removed_at = pushed_at
-      else
-        index.updated_at = pushed_at
-      end
-      index.save
-      index = nil
-    end
-    if index_id == nil
-      index_id = Indices.select(:id).where(
-        user_id:      user.id,
-        name:         index_name,
-        removed:      false,
-        anon:         params['anon'].to_b,
-        hidden:       params['hidden'].to_b,
-        filename:     params['filename'].to_b,
-        path:         params['path'].to_b,
-        push_time:    params['push_time'].to_b,
-        commit_time:  params['commit_time'].to_b,
-        message:      params['messages'].to_b,
-        file_time:    params['file_time'].to_b,
-        created_at:   pushed_at,
-        updated_at:   pushed_at,
-        removed_at:   nil,
-      ).last
-    end
-
-    # TODO catch exceptions...
+    # whether we've added some commit in this push
     added_commits = false
+
     commits.each do |commit|
+      # index stuff
+      ic = commit['index_config']
+      from_index_id = nil
+      if last_index
+        index = last_index
+      else
+        # retrieve the last index (index config)
+        index = Wix::Index.where(
+          user_id:      user.id,
+          name:         index_name,
+          removed:      false,
+        ).order_by(Sequel.desc(:id)).first
+      end
+      if index
+        if ic['force_new']
+          # if there was an existent index and this commits is intended
+          # to be the first one throw an error
+          halt ERROR NOT NEW
+        end
+        from_index_id = index.id
+        # check if we need to upload the index
+        if index.anon != ic['anon'].to_b ||
+           index.hidden != ic['hidden'].to_b ||
+           index.filename != ic['filename'].to_b ||
+           index.path != ic['path'].to_b ||
+           index.push_time != ic['push_time'].to_b ||
+           index.commit_time != ic['commit_time'].to_b ||
+           index.message !=  ic['message'].to_b ||
+           index.file_time != ic['file_time'].to_b
+          # if not_update! flag and index config doesn't match raise an error
+          if ic['force_no_update']
+            halt ERROR NOT UPDATE
+          end
+          index.removed = true
+          index.removed_at = pushed_at
+        end
+        index.updated_at = pushed_at
+        index.save
+        index = nil if index.removed?
+      end
+      # create a new index (config) if needed
+      if !index
+        index = Wix::Index.create(
+          user_id:      user.id,
+          name:         index_name,
+          from_index_id:from_index_id,
+          removed:      false,
+          anon:         ic['anon'].to_b,
+          hidden:       ic['hidden'].to_b,
+          filename:     ic['filename'].to_b,
+          path:         ic['path'].to_b,
+          push_time:    ic['push_time'].to_b,
+          commit_time:  ic['commit_time'].to_b,
+          message:      ic['message'].to_b,
+          file_time:    ic['file_time'].to_b,
+          created_at:   pushed_at,
+          updated_at:   pushed_at,
+          removed_at:   nil,
+        )
+      end
+      last_index = index
+
       # if user try to upload pushed commits, ignore
       commit = Wix::Commit.first_or_new(
         index_id: index_id,
@@ -85,15 +108,14 @@ post '/push/:name' do |name|
       )
       next if !commit.new? && !added_commits
       added_commits = true
-      # TODO improve this logic...
-      # TODO use a first_or_insert instead first_or_new...
 
+      # save commit object
       commit.message = commit['message']
       commit.commited_at = Time.new(commit['commited_at'])
       commit.pushed_at = pushed_at
       commit.save!
 
-      commits['objects'].each do |object|
+      commit['objects'].each do |object|
         # get file object references, creating a new if needed
         # TODO use a first_or_insert instead first_or_new...
         file = Wix::File.first_or_create(
@@ -106,6 +128,7 @@ post '/push/:name' do |name|
           name: object['name'],
           path: object['path'],
           created_at: object['created_at'],
+          removed: object['removed']
         )
       end
     end

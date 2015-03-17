@@ -8,6 +8,7 @@ require_relative './db_connection.rb'
 
 configure do
   set :environment, ENVIRONMENT
+  enable :sessions
   R18n::I18n.default = 'en'
 end
 

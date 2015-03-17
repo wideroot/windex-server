@@ -10,6 +10,7 @@ end
 DB.create_table?  :indices do
   primary_key :id
   foreign_key :user_id
+  foreign_key :from_index_id, :indices, key: :id, null: true
   TrueClass   :removed      , null: false
   String      :name         , null: false   , text: false
   TrueClass   :anon         , null: false
@@ -50,5 +51,6 @@ DB.create_table?  :objects do
   String      :name         , null: true    , text: true
   String      :path         , null: true    , text: true
     # JSON ['dir','dir','file']
-  Time        :created_at   , null: true
+  Integer     :mtime        , null: true
+  TrueClass   :removed      , null: false
 end
