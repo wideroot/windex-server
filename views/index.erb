@@ -1,6 +1,6 @@
 <h1>Index <%= resp.index.link %></h1>
 <%= create_table(%w(id index-name root-index from next removed user),
-[resp.index.link, resp.index.name, resp.index.root_link, resp.index.from_link, resp.index.next_link, resp.index.removed, resp.user.link]
+[resp.index.link, resp.index.name, resp.index.root_link, resp.index.from_link, resp.index.next_link, resp.index.removed, resp.user ? resp.user.link : nil]
                  )
 %>
 

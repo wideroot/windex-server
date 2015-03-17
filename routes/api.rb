@@ -309,6 +309,7 @@ get '/api/index/:index_id' do |index_id|
     .where(index_id: index.id)
     .order_by(Sequel.desc(:id))
     .all
+  user = nil if index.anon && !permissions?(user_auth, index.user_id)
   te :index, {index: index, user: user, commits: commits}
 end
 
@@ -317,7 +318,7 @@ get '/api/root_index/:index_id' do |index_id|
   index = Wix::Index[index_id]
   halt 404 unless index
   halt 404 unless index.root_index_id == index.id
-  halt 401 unless permissions?(user_auth, index.user_id)
+  permissions!(user_auth, index.user_id)
   indices = Wix::Index
     .where(root_index_id: index.id)
     .order_by(Sequel.desc(:id))
