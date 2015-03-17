@@ -9,9 +9,10 @@ end
 
 DB.create_table?  :indices do
   primary_key :id
-  foreign_key :user_id
+  foreign_key :root_index_id, :indices, key: :id, null: true  # TODO
   foreign_key :from_index_id, :indices, key: :id, null: true
   TrueClass   :removed      , null: false
+  foreign_key :user_id
   String      :name         , null: false   , text: false
   TrueClass   :anon         , null: false
   TrueClass   :hidden       , null: false
@@ -35,7 +36,8 @@ end
 
 DB.create_table?  :commits do
   primary_key :id
-  foreign_key :index_id
+  foreign_key :index_id     , null: false
+  foreign_key :root_index_id, null: false   # index_id.root_index_id == root_index_id
   String      :rid          , null: false   , text: false , fixed: true , size: 128 , index: true
     # rid = sha2_512(commit_time)
   String      :message      , null: true    , text: true

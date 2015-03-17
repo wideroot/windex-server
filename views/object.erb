@@ -1,0 +1,2 @@
+<h1>Object <%= resp.object.link %></h1>
+<%= create_rtable(%w(id file commit created_at removed name path), [resp.object.link, resp.object.file_link, resp.object.commit_link, resp.object.created_at, resp.object.removed, resp.object.name, resp.object.path.inspect]) %>

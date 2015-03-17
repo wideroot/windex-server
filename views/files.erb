@@ -1,0 +1,7 @@
+<h1>Files</h1>
+<h3>Size <%= resp.files.first.size %></h3>
+<h3>sha2_512 <%= resp.files.first.sha2_512[0..16]%>...</h3>
+<%= create_table(%w(id size sha2-512),
+  resp.files.map { |f| [f.link, f.size, f.sha2_512] }
+)
+%>

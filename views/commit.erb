@@ -1,0 +1,15 @@
+<% if resp.commit %>
+<h1>Commit <%= resp.commit.link %></h1>
+<%= create_rtable(%w(id index message commited_at pushed_at rid),
+[resp.commit.link, resp.commit.index_link, resp.commit.message, resp.commited_at, resp.commit.pushed_at, resp.commit.rid]
+                 )
+%>
+<% else %>
+<h1>Hidden Commit</h1>
+<% end %>
+
+<h1>Object</h1>
+<%= create_table(%w(id file created_at removed name path),
+resp.objects.map { |object| [object.link, object.file_link, object.created_at, object.removed, object.name, object.path.inspect] }
+                )
+%>

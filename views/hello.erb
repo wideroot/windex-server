@@ -1,4 +1,10 @@
 <% require 'github/markup' %>
+<p>
+  <a href="<%= url('/api') %>">API</a>
+</p>
+
+<br />
+
 <h1>README.md</h1>
 <hr />
 <%= file = './README.md' ; GitHub::Markup.render(file, File.read(file)) %>

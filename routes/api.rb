@@ -1,4 +1,5 @@
 def authenticate!
+  $user if $user
   @auth ||= Rack::Auth::Basic::Request.new(request.env)
   if @auth.provided? and @auth.basic? and @auth.credentials
     username, password = @auth.credentials
@@ -92,10 +93,11 @@ def push_commits user, index_name, commits
       # create a new index (config) if needed
       if !index
         index = Wix::Index.create(
-          user_id:      user.id,
-          name:         index_name,
+          root_index_id:last_index ? last_index.root_index_id : nil,
           from_index_id:last_index ? last_index.id : nil,
           removed:      false,
+          user_id:      user.id,
+          name:         index_name,
           anon:         ic['anon'],
           hidden:       ic['hidden'],
           filename:     ic['filename'],
@@ -108,6 +110,11 @@ def push_commits user, index_name, commits
           updated_at:   pushed_at,
           removed_at:   nil,
         )
+        if index.root_index_id == nil
+          index.root_index_id = index.id
+          # we do not need to save, because we are going to save the changes
+          # in last_index.save_changes ...
+        end
       end
       last_index = index
       warn "created new index #{index.id}"
@@ -122,6 +129,7 @@ def push_commits user, index_name, commits
       added_commits = true
 
       # and save commit object
+      c.root_index_id = index.root_index_id
       c.message = commit['message']
       c.commited_at = utc_time_at(commit['commited_at'])
       c.pushed_at = pushed_at
@@ -137,7 +145,7 @@ def push_commits user, index_name, commits
           file_id: file.id,
           commit_id: c.id,
           name: object['name'],
-          path: object['path'],
+          path: object['path'].to_json,
           created_at: utc_time_at(object['created_at']),
           removed: object['removed'],
         )
@@ -148,7 +156,7 @@ def push_commits user, index_name, commits
 end
 
 def utc_time_at seconds
-  return nil if seconds.class != Integer
+  return nil unless seconds.is_a?(Integer) && seconds > 0
   begin
     return DateTime.strptime(seconds.to_s, "%s")
   rescue
@@ -159,18 +167,22 @@ end
 
 def get_user user_identifier
   halt 404 if user_identifier.empty?
-  user = if user_identifier[0] =~ /[[:digit:]]/
-    Wix::User.where(id: user_identifier).first
-  else
-    Wix::User.where(username: user_identifier).first
-  end
+  #user = if user_identifier[0] =~ /[[:digit:]]/
+  #  Wix::User.where(id: user_identifier).first
+  #else
+  #  Wix::User.where(username: user_identifier).first
+  #end
+  user = Wix::User.where(username: user_identifier).first
   halt 404 unless user
+  user
 end
 
 def check_user_permissions_for_user user1, user2
   return if user1 == user2
   halt 401, (te :not_authorized, {message: "Not authorized to see #{user2.username} private information."})
 end
+
+
 
 
 get '/api/user/:user' do |user|
@@ -192,11 +204,18 @@ end
 
 
 
-get '/api/file/:size/sha2_512/:sha2_512' do |size, sha2_512|
+# TODO filter here fields that shouldn't be exposed...
+get '/api/files/size/:size/sha2_512/:sha2_512' do |size, sha2_512|
   # TODO truncate sha2_512.truncate(128) ... ? do not dup then...
   files = Wix::File.where(size: size, sha2_512: sha2_512).all
   halt 404 if files.empty?
-  te :file, {files: files}
+  te :files, {files: files}
+end
+get '/api/file/:id' do |id|
+  file = Wix::File[id]
+  halt 404 unless file
+  objects = Wix::Object.all
+  te :file, {file: file, objects: objects}
 end
 
 get '/api/object/:object_id' do |object_id|
@@ -205,41 +224,66 @@ get '/api/object/:object_id' do |object_id|
   te :object, {object: object}
 end
 
-get '/api/commits/:index_id' do |index_id|
-  index = Wix::Object[index_id]
-  halt 404 unless index
-  te :commits, {index: index}
+get '/api/object/:object_id/commit' do |object_id|
+  o = Wix::Object
+    .select(:objects__id, :commit_id, :hidden)
+    .where(objects__id: object_id)
+    .left_outer_join(:commits, id: :commit_id)
+    .left_outer_join(:indices, id: :index_id)
+    .first
+  halt 404 unless o
+  hidden = o.values[:hidden]
+  rt = hidden ? "/api/hidden/#{o.id}" : "/api/commit/#{o.commit_id}"
+  redirect to rt
+end
+
+get '/api/hidden/:object_id' do |object_id|
+  object = Wix::Object[object_id]
+  halt 404 unless object
+  te :commit, {commit: nil, objects: [object]}
+end
+
+get '/api/commit/:commit_id' do |commit_id|
+  commit = Wix::Commit
+    .select_all(:commits)
+    .select_append(:hidden, :push_time)
+    .where(commits__id: commit_id)
+    .left_outer_join(:indices, id: :index_id)
+    .first
+  halt 404 unless commit
+  hidden = commit.values[:hidden]
+  puts commit.values
+  halt 404 if hidden
+  objects = Wix::Object.where(commit_id: commit.id).all
+  commit.pushed_at = nil unless commit.values[:push_time]
+  te :commit, {commit: commit, objects: objects}
 end
 
 get '/api/index/:index_id' do |index_id|
   index = Wix::Object[index_id]
   halt 404 unless index
-  pass
+  te :index, {}
 end
 
-get '/api/snapshot/:commit_id' do |commit_id|
-  commit = Wix::Object[commit_id]
-  halt 404 unless commit
-  te :snapshot, {commit: commit}
-end
+=begin
+log/object
+diff/commit/commit
+stats/file
+=end
 
-get '/api/commit/:commit_id' do |commit_id|
-  commit = Wix::Object[commit_id]
-  halt 404 unless commit
-  te :commit, {commit: commit}
-end
 
 
 
 
 get '/api/list/files' do
-  request.path_info = '/files/0/100'
+  request.path_info = '/api/list/files/0/1000'
   pass
 end
 get '/api/list/files/:from/:limit' do |from, limit|
   max_files_to = 1000  # TODO
   from = from.to_i
   limit = [limit.to_i, max_files_to].max
-  files = Wix::File.limit(limit).offset(from)
-  te :files, {files: files}
+  not_found if from < 0 || limit < 0
+  files = Wix::File.limit(limit).offset(from).all
+  te :list_files, {files: files, from: from, limit: limit}
 end

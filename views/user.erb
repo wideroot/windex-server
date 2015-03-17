@@ -1,0 +1,2 @@
+<h1>User <% resp.user.link %></h1>
+<%= create_rtable(%w(user mail public private), [resp.user.username, resp.user.show_email ? resp.file.mail : nil, resp.user.public_indices_link, resp.user.private_indices.link]) %>
