@@ -1,14 +1,8 @@
-MAX_USER_TO   = 100
-MAX_FILES_TO  = 1000
-
-
-
-
 def authenticate!
   @auth ||= Rack::Auth::Basic::Request.new(request.env)
   if @auth.provided? and @auth.basic? and @auth.credentials
-    name, password = @auth.credentials
-    user = Wix::User.where(name: name, password: password).first
+    username, password = @auth.credentials
+    user = Wix::User.where(username: username, password: password).first
   end
   if user == nil
     headers['WWW-Authenticate'] = 'Basic realm="Restricted Area"'
@@ -23,21 +17,30 @@ end
 # TODO post '/close_index/:index_name' do |index_name|
 # end
 
-post '/push/:index_name' do |index_name|
+post '/api/push/:index_name' do |index_name|
   user = authenticate!
   begin
     commits = JSON.parse(params[:push_file])
   rescue => ex
-    halt 400, (te :invalid_push, {message: "Invalid commits field'"})
+    pp ex
+    halt 400, (te :invalid_push, {message: "Invalid commits field"})
   end
+  begin
+    push_commits(user, index_name, commits)
+  rescue => ex
+    pp ex
+    halt 400, (te :invalid_push, {message: "Transaction failed: #{ex}"})
+  end
+  200
+end
 
-  pushed_at = Sequel.datetime_class.now
+def push_commits user, index_name, commits
+  # whether we've added some commit in this push
+  pushed_at = Time.now.utc
   last_index = nil
+  added_commits = false
 
   DB.transaction do
-    # whether we've added some commit in this push
-    added_commits = false
-
     commits.each do |commit|
       # index stuff
       ic = commit['index_config']
@@ -56,28 +59,28 @@ post '/push/:index_name' do |index_name|
         if ic['force_new']
           # if there was an existent index and this commits is intended
           # to be the first one throw an error
-          halt ERROR NOT NEW
+          raise "Index already exists"
         end
         from_index_id = index.id
         # check if we need to upload the index
-        if index.anon != ic['anon'].to_b ||
-           index.hidden != ic['hidden'].to_b ||
-           index.filename != ic['filename'].to_b ||
-           index.path != ic['path'].to_b ||
-           index.push_time != ic['push_time'].to_b ||
-           index.commit_time != ic['commit_time'].to_b ||
-           index.message !=  ic['message'].to_b ||
-           index.file_time != ic['file_time'].to_b
+        if index.anon != ic['anon'] ||
+           index.hidden != ic['hidden'] ||
+           index.filename != ic['filename'] ||
+           index.path != ic['path'] ||
+           index.push_time != ic['push_time'] ||
+           index.commit_time != ic['commit_time'] ||
+           index.message !=  ic['message'] ||
+           index.file_time != ic['file_time']
           # if not_update! flag and index config doesn't match raise an error
           if ic['force_no_update']
-            halt ERROR NOT UPDATE
+            raise "Index must be updateds"
           end
           index.removed = true
           index.removed_at = pushed_at
         end
         index.updated_at = pushed_at
         index.save
-        index = nil if index.removed?
+        index = nil if index.removed
       end
       # create a new index (config) if needed
       if !index
@@ -86,14 +89,14 @@ post '/push/:index_name' do |index_name|
           name:         index_name,
           from_index_id:from_index_id,
           removed:      false,
-          anon:         ic['anon'].to_b,
-          hidden:       ic['hidden'].to_b,
-          filename:     ic['filename'].to_b,
-          path:         ic['path'].to_b,
-          push_time:    ic['push_time'].to_b,
-          commit_time:  ic['commit_time'].to_b,
-          message:      ic['message'].to_b,
-          file_time:    ic['file_time'].to_b,
+          anon:         ic['anon'],
+          hidden:       ic['hidden'],
+          filename:     ic['filename'],
+          path:         ic['path'],
+          push_time:    ic['push_time'],
+          commit_time:  ic['commit_time'],
+          message:      ic['message'],
+          file_time:    ic['file_time'],
           created_at:   pushed_at,
           updated_at:   pushed_at,
           removed_at:   nil,
@@ -101,41 +104,47 @@ post '/push/:index_name' do |index_name|
       end
       last_index = index
 
-      # if user try to upload pushed commits, ignore
-      commit = Wix::Commit.first_or_new(
-        index_id: index_id,
+      c = Wix::Commit.first_or_new(
+        index_id: index.id,
         rid: commit['rid'],
       )
-      next if !commit.new? && !added_commits
+      # if user try to upload pushed commits, ignore
+      next if !c.new? && !added_commits
       added_commits = true
 
       # save commit object
-      commit.message = commit['message']
-      commit.commited_at = Time.new(commit['commited_at'])
-      commit.pushed_at = pushed_at
-      commit.save!
+      c.message = commit['message']
+      c.commited_at = utc_time_at(commit['commited_at'])
+      c.pushed_at = pushed_at
+      c.save
 
       commit['objects'].each do |object|
         # get file object references, creating a new if needed
-        # TODO use a first_or_insert instead first_or_new...
         file = Wix::File.first_or_create(
           size: object['size'],
           sha2_512: object['sha2_512'],
         )
         object_id = Wix::Object.insert(
           file_id: file.id,
-          commit_id: commit.id,
+          commit_id: c.id,
           name: object['name'],
           path: object['path'],
-          created_at: object['created_at'],
-          removed: object['removed']
+          created_at: utc_time_at(object['created_at']),
+          removed: object['removed'],
         )
       end
     end
   end
 end
 
-
+def utc_time_at seconds
+  return nil if seconds.class != Integer
+  begin
+    return DateTime.strptime(seconds.to_s, "%s")
+  rescue
+    return nil
+  end
+end
 
 
 def get_user user_identifier
@@ -154,16 +163,16 @@ def check_user_permissions_for_user user1, user2
 end
 
 
-get '/user/:user' do |user|
+get '/api/user/:user' do |user|
   user = get_user(user)
   te :user, {user: user}
 end
-get '/user/:user/public_indices' do |user|
+get '/api/user/:user/public_indices' do |user|
   user = get_user(user)
   te :public_indices, {user: user}
 end
 
-get '/user/:user/private_indices' do |user|
+get '/api/user/:user/private_indices' do |user|
   user_auth = authenticate!
   user = get_user(user)
   halt 404 unless user
@@ -171,66 +180,40 @@ get '/user/:user/private_indices' do |user|
   te :private_indices, {user: user}
 end
 
-get '/user/:user/show/:index' do |user, index|
-  # TODO CALCULATE INDEX NAME... last...
-  request.path_info = "/index/#{index}"
-  pass
-end
-
-get '/user/:user/commits/:index' do |user, index|
-  # TODO CALCULATE INDEX NAME...
-  request.path_info = "/commits/#{index}"
-  pass
-end
-
-get '/user/:user/show/:index/:commit' do |user, index, commit|
-  # TODO check...
-  request.path_info = "/commit/#{commit}"
-  pass
-end
-
-get '/user/:user/show/:index/:commit/:object' do |user, index, commit, object|
-  # TODO force check user, index, commit
-  request.path_info = "/object/#{object}"
-  pass
-end
 
 
-
-
-get '/file/:size/sha2_512/:sha2_512' do |size, sha2_512|
+get '/api/file/:size/sha2_512/:sha2_512' do |size, sha2_512|
   # TODO truncate sha2_512.truncate(128) ... ? do not dup then...
   files = Wix::File.where(size: size, sha2_512: sha2_512).all
   halt 404 if files.empty?
   te :file, {files: files}
 end
 
-get '/object/:object_id' do |object_id|
+get '/api/object/:object_id' do |object_id|
   object = Wix::Object[object_id]
   halt 404 unless object
   te :object, {object: object}
 end
 
-get '/commits/:index_id' do |index_id|
+get '/api/commits/:index_id' do |index_id|
   index = Wix::Object[index_id]
   halt 404 unless index
   te :commits, {index: index}
 end
 
-get '/index/:index_id' do |index_id|
+get '/api/index/:index_id' do |index_id|
   index = Wix::Object[index_id]
   halt 404 unless index
-  request.path_info = "/snapshot/#{index.head_id}"
   pass
 end
 
-get '/snapshot/:commit_id' do |commit_id|
+get '/api/snapshot/:commit_id' do |commit_id|
   commit = Wix::Object[commit_id]
   halt 404 unless commit
   te :snapshot, {commit: commit}
 end
 
-get '/commit/:commit_id' do |commit_id|
+get '/api/commit/:commit_id' do |commit_id|
   commit = Wix::Object[commit_id]
   halt 404 unless commit
   te :commit, {commit: commit}
@@ -239,24 +222,14 @@ end
 
 
 
-get '/users' do
-  request.path_info = '/users/0/100'
-  pass
-end
-get '/users/:from/:limit' do |from, limit|
-  from = from.to_i
-  limit = [limit.to_i, MAX_USER_TO].max
-  users = Wix::User.limit(limit).offset(from)
-  te :users, {users: users}
-end
-
-get '/files' do
+get '/api/list/files' do
   request.path_info = '/files/0/100'
   pass
 end
-get '/files/:from/:limit' do |from, limit|
+get '/api/list/files/:from/:limit' do |from, limit|
+  max_files_to = 1000  # TODO
   from = from.to_i
-  limit = [limit.to_i, MAX_FILES_TO].max
+  limit = [limit.to_i, max_files_to].max
   files = Wix::File.limit(limit).offset(from)
   te :files, {files: files}
 end
