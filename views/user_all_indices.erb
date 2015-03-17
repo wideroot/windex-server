@@ -1,0 +1,3 @@
+<h1>Root Indices <%= resp.user.link %></h1>
+
+<%= create_table(%w(id name removed? created-at removed-at last-update-at from root), resp.indices.map { |i| [i.link, i.name, i.removed, i.created_at, i.removed_at, i.updated_at, i.from_link, i.root_link] } ) %>

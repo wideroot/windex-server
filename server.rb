@@ -33,25 +33,13 @@ def api_request?
   request.path_info.start_with? '/api/'
 end
 
-before do
-  # TODO implement it
-  $user = nil
-  pass if request.path_info == '/sign_out' || api_request?
-  puts session.inspect
-  if session[:username]
-    $user = Wix::User.first(username: session[:username])
-  end
-end
+
+
 
 get '/' do
-  te :index
+  te :hello
 end
 
 not_found do
   [404, (te :not_found)]
-end
-
-after do
-  pass if api_request?
-  session[:username] = $user ? $user.username : nil
 end

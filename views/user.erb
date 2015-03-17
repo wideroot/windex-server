@@ -1,2 +1,6 @@
-<h1>User <% resp.user.link %></h1>
-<%= create_rtable(%w(user mail public private), [resp.user.username, resp.user.show_email ? resp.file.mail : nil, resp.user.public_indices_link, resp.user.private_indices.link]) %>
+<h1>User <%= resp.user.link %></h1>
+<% if resp.show_all %>
+<%= create_rtable(%w(user mail list list list), [resp.user.username, resp.user.email, resp.user.public_indices_link, resp.user.all_indices_link, resp.user.root_indices_link]) %>
+<% else %>
+<%= create_rtable(%w(user mail list), [resp.user.username, resp.user.email, resp.user.public_indices_link]) %>
+<% end %>

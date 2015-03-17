@@ -1,9 +1,37 @@
+def save_session
+  session[:username] = $user.username if $user
+end
+
+before do
+  # TODO implement it
+  $user = nil
+  pass if request.path_info == '/sign_out'
+  if session[:username]
+    $user = Wix::User.first(username: session[:username])
+  end
+end
+
+after do
+  # XXX pass if api_request?
+  save_session
+end
+
+get '/sign_out' do
+  $user = nil
+  session[:username] = nil
+  redirect to '/', 307
+end
+
+
+
+
 get '/sign_in' do
   te :sign_in
 end
 
 post '/sign_in' do
   $user = Wix::User.first(username: params[:username], password: params[:password])
+  save_session
   if $user
     redirect to '/', 307
   else

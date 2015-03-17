@@ -1,13 +1,15 @@
 def authenticate!
-  $user if $user
+  user = try_authenticate
+  return user if user
+  headers['WWW-Authenticate'] = 'Basic realm="Restricted Area"'
+  halt 401, (te :not_authorized, {message: "Invalid username or password."})
+end
+def try_authenticate
+  return $user if $user
   @auth ||= Rack::Auth::Basic::Request.new(request.env)
   if @auth.provided? and @auth.basic? and @auth.credentials
     username, password = @auth.credentials
     user = Wix::User.where(username: username, password: password).first
-  end
-  if user == nil
-    headers['WWW-Authenticate'] = 'Basic realm="Restricted Area"'
-    halt 401, (te :not_authorized, {message: "Invalid username or password."})
   end
   user
 end
@@ -177,9 +179,15 @@ def get_user user_identifier
   user
 end
 
-def check_user_permissions_for_user user1, user2
-  return if user1 == user2
-  halt 401, (te :not_authorized, {message: "Not authorized to see #{user2.username} private information."})
+def permissions? user_auth, user
+  puts "#{user_auth.inspect} vs #{user.inspect}"
+  user_id = user.is_a?(Integer) ? user : user.id
+  return user_auth && user_auth.id == user_id
+end
+
+def permissions! user_auth, user
+  return if permissions?(user_auth, user)
+  halt 401, (te :not_authorized, {message: "Not authorized to see private information of other user."})
 end
 
 
@@ -187,19 +195,40 @@ end
 
 get '/api/user/:user' do |user|
   user = get_user(user)
-  te :user, {user: user}
+  user.email = nil unless user.show_email  # XXX
+  te :user, {user: user, show_all: $user && $user.id == user.id}
 end
 get '/api/user/:user/public_indices' do |user|
   user = get_user(user)
-  te :public_indices, {user: user}
+  indices = Wix::Index
+    .select(:id, :name, :removed)
+    .where(user_id: user.id, anon: false, hidden: false)
+    .all
+  te :user_public_indices, {user: user, indices: indices}
 end
 
-get '/api/user/:user/private_indices' do |user|
+get '/api/user/:user/all_indices' do |user|
   user_auth = authenticate!
   user = get_user(user)
-  halt 404 unless user
-  check_user_permissions_for_user!(user_auth, user)
-  te :private_indices, {user: user}
+  permissions!(user_auth, user)
+  indices = Wix::Index
+    .select(:id, :name, :removed, :created_at, :removed_at, :updated_at, :from_index_id, :root_index_id)
+    .where(user_id: user.id)
+    .order_by(Sequel.desc(:id))
+    .all
+  te :user_all_indices, {user: user, indices: indices}
+end
+
+get '/api/user/:user/root_indices' do |user|
+  user_auth = authenticate!
+  user = get_user(user)
+  permissions!(user_auth, user)
+  indices = Wix::Index
+    .select(:id, :name, :removed, :created_at, :removed_at, :updated_at, :root_index_id)
+    .where(user_id: user.id, root_index_id: :id)
+    .order_by(Sequel.asc(:id))
+    .all
+  te :user_root_indices, {user: user, indices: indices}
 end
 
 
@@ -207,14 +236,19 @@ end
 # TODO filter here fields that shouldn't be exposed...
 get '/api/files/size/:size/sha2_512/:sha2_512' do |size, sha2_512|
   # TODO truncate sha2_512.truncate(128) ... ? do not dup then...
-  files = Wix::File.where(size: size, sha2_512: sha2_512).all
+  files = Wix::File
+    .where(size: size, sha2_512: sha2_512)
+    .order_by(Sequel.asc(:id))
+    .all
   halt 404 if files.empty?
   te :files, {files: files}
 end
 get '/api/file/:id' do |id|
   file = Wix::File[id]
   halt 404 unless file
-  objects = Wix::Object.all
+  objects = Wix::Object
+    .order_by(Sequel.desc(:id))
+    .all
   te :file, {file: file, objects: objects}
 end
 
@@ -225,15 +259,15 @@ get '/api/object/:object_id' do |object_id|
 end
 
 get '/api/object/:object_id/commit' do |object_id|
-  o = Wix::Object
+  object = Wix::Object
     .select(:objects__id, :commit_id, :hidden)
     .where(objects__id: object_id)
     .left_outer_join(:commits, id: :commit_id)
     .left_outer_join(:indices, id: :index_id)
     .first
-  halt 404 unless o
-  hidden = o.values[:hidden]
-  rt = hidden ? "/api/hidden/#{o.id}" : "/api/commit/#{o.commit_id}"
+  halt 404 unless object
+  hidden = object.index.hidden
+  rt = hidden ? "/api/hidden/#{object.id}" : "/api/commit/#{object.commit_id}"
   redirect to rt
 end
 
@@ -244,31 +278,58 @@ get '/api/hidden/:object_id' do |object_id|
 end
 
 get '/api/commit/:commit_id' do |commit_id|
+  user_auth = try_authenticate
   commit = Wix::Commit
     .select_all(:commits)
-    .select_append(:hidden, :push_time)
+    .select_append(:hidden, :push_time, :user_id)
     .where(commits__id: commit_id)
     .left_outer_join(:indices, id: :index_id)
     .first
   halt 404 unless commit
-  hidden = commit.values[:hidden]
-  puts commit.values
-  halt 404 if hidden
+  halt 401 unless permissions?(user_auth, commit.index.user_id) || !commit.index.hidden
   objects = Wix::Object.where(commit_id: commit.id).all
-  commit.pushed_at = nil unless commit.values[:push_time]
+  commit.pushed_at = nil unless commit.index.push_time
   te :commit, {commit: commit, objects: objects}
 end
 
 get '/api/index/:index_id' do |index_id|
-  index = Wix::Object[index_id]
+  user_auth = try_authenticate
+  index = Wix::Index[index_id]
   halt 404 unless index
-  te :index, {}
+  halt 401 unless permissions?(user_auth, index.user_id) || !index.hidden
+  user = Wix::User.select(:username).where(id: index.user_id).first
+  commits = Wix::Commit
+  if permissions?(user_auth, index.user_id)
+    commits = commits.select(:id)
+    commits = commits.select_append(:message)       if index.message
+    commits = commits.select_append(:commited_at)   if index.commit_time
+    commits = commits.select_append(:pushed_at)     if index.push_time
+  end
+  commits = commits
+    .where(index_id: index.id)
+    .order_by(Sequel.desc(:id))
+    .all
+  te :index, {index: index, user: user, commits: commits}
+end
+
+get '/api/root_index/:index_id' do |index_id|
+  user_auth = try_authenticate
+  index = Wix::Index[index_id]
+  halt 404 unless index
+  halt 404 unless index.root_index_id == index.id
+  halt 401 unless permissions?(user_auth, index.user_id)
+  indices = Wix::Index
+    .where(root_index_id: index.id)
+    .order_by(Sequel.desc(:id))
+    .all
+  te :root_index, {indices: indices, user: user_auth}
 end
 
 =begin
 log/object
 diff/commit/commit
 stats/file
+TODO id mechanism is not safe...
 =end
 
 

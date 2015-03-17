@@ -1,0 +1,3 @@
+<h1>Indices <%= resp.user.link %></h1>
+
+<%= create_table(%w(id name removed?), resp.indices.map { |i| [i.link, i.name, i.removed] } ) %>

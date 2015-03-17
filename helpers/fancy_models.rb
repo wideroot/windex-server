@@ -8,15 +8,33 @@ class User
   def link
     %Q{<a href="#{url_x ("/api/user/#{username}")}">@#{username}</a>}
   end
-  def private_indices_link
-    %Q{<a href="#{url_x ("/api/user/#{username}/private_indices")}">@#{username}</a>}
+  def root_indices_link
+    %Q{<a href="#{url_x ("/api/user/#{username}/root_indices")}">root indices</a>}
   end
-  def link
-    %Q{<a href="#{url_x ("/api/user/#{username}/public_indices")}">@#{username}</a>}
+  def all_indices_link
+    %Q{<a href="#{url_x ("/api/user/#{username}/all_indices")}">all indices</a>}
+  end
+  def public_indices_link
+    %Q{<a href="#{url_x ("/api/user/#{username}/public_indices")}">public indices</a>}
   end
 end
 
 class Index
+  def link
+    %Q{<a href="#{url_x ("/api/index/#{id}")}">*#{id}</a>}
+  end
+  def next_link
+    next_index_id = Index.select(:id).where(from_index_id: id).first
+    return nil if next_index_id == nil
+    %Q{<a href="#{url_x ("/api/index/#{next_index_id}")}">*#{next_index_id}</a>}
+  end
+  def from_link
+    return nil if from_index_id == nil
+    %Q{<a href="#{url_x ("/api/index/#{from_index_id}")}">*#{from_index_id}</a>}
+  end
+  def root_link
+    %Q{<a href="#{url_x ("/api/root_index/#{root_index_id}")}">*#{root_index_id}</a>}
+  end
 end
 
 class File
