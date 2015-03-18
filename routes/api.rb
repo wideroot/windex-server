@@ -266,7 +266,7 @@ get '/api/object/:object_id/commit' do |object_id|
     .left_outer_join(:indices, id: :index_id)
     .first
   halt 404 unless object
-  hidden = object.index.hidden
+  hidden = object.commit.index.hidden
   rt = hidden ? "/api/hidden/#{object.id}" : "/api/commit/#{object.commit_id}"
   redirect to rt
 end
@@ -285,6 +285,7 @@ get '/api/commit/:commit_id' do |commit_id|
     .where(commits__id: commit_id)
     .left_outer_join(:indices, id: :index_id)
     .first
+  puts commit.index.hidden
   halt 404 unless commit
   halt 401 unless permissions?(user_auth, commit.index.user_id) || !commit.index.hidden
   objects = Wix::Object.where(commit_id: commit.id).all
@@ -346,6 +347,6 @@ get '/api/list/files/:from/:limit' do |from, limit|
   from = from.to_i
   limit = [limit.to_i, max_files_to].max
   not_found if from < 0 || limit < 0
-  files = Wix::File.limit(limit).offset(from).all
+  files = Wix::File.limit(limit).order_by(Sequel.asc(:id)).offset(from).all
   te :list_files, {files: files, from: from, limit: limit}
 end
