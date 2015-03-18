@@ -1,13 +1,13 @@
 def save_session
-  session[:username] = $user.username if $user
+  session[:username] = @user.username if @user
 end
 
 before do
   # TODO implement it
-  $user = nil
+  @user = nil
   pass if request.path_info == '/sign_out'
   if session[:username]
-    $user = Wix::User.first(username: session[:username])
+    @user = Wix::User.first(username: session[:username])
   end
 end
 
@@ -17,7 +17,7 @@ after do
 end
 
 get '/sign_out' do
-  $user = nil
+  @user = nil
   session[:username] = nil
   redirect to '/', 307
 end
@@ -30,9 +30,9 @@ get '/sign_in' do
 end
 
 post '/sign_in' do
-  $user = Wix::User.first(username: params[:username], password: params[:password])
+  @user = Wix::User.first(username: params[:username], password: params[:password])
   save_session
-  if $user
+  if @user
     redirect to '/', 307
   else
     resp = {error_message: "Invalid name or password"}
@@ -77,7 +77,7 @@ post '/sign_up' do
       user.show_email = true
       user.created_at = Sequel.datetime_class.now
       user.save
-      $user = user
+      @user = user
       redirect to '/', 307
     else
       resp = {error_message: "#{username} already exists"}

@@ -5,7 +5,7 @@ def authenticate!
   halt 401, (te :not_authorized, {message: "Invalid username or password."})
 end
 def try_authenticate
-  return $user if $user
+  return @user if @user
   @auth ||= Rack::Auth::Basic::Request.new(request.env)
   if @auth.provided? and @auth.basic? and @auth.credentials
     username, password = @auth.credentials
@@ -196,7 +196,7 @@ end
 get '/api/user/:user' do |user|
   user = get_user(user)
   user.email = nil unless user.show_email  # XXX
-  te :user, {user: user, show_all: $user && $user.id == user.id}
+  te :user, {user: user, show_all: @user && @user.id == user.id}
 end
 get '/api/user/:user/public_indices' do |user|
   user = get_user(user)

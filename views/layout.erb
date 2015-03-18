@@ -6,8 +6,8 @@
     <div>
       <ul>
         <li><a href="<%= url('/api/list/files') %>">Files</a></li>
-        <% if $user %>
-          <li><a href="<%= url("/api/user/#{$user.username}") %>"><%= $user.username %></a></li>
+        <% if @user %>
+          <li><a href="<%= url("/api/user/#{@user.username}") %>"><%= @user.username %></a></li>
           <li><a href="<%= url('/sign_out') %>">Sign Out</a></li>
         <% else %>
           <li><a href="<%= url('/sign_in') %>">Sign In</a></li>
