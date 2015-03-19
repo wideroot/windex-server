@@ -1,3 +1,5 @@
+# ids shouldn't be autoincrements, but randome values, since it'd be a security issue
+# (otherwise set hidden  to true or push_times to false would be completely useless)
 DB.create_table?  :users do
   primary_key :id 
   String      :username     , null: false   , text: false   , unique: true
