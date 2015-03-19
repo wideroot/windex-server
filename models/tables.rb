@@ -55,5 +55,5 @@ DB.create_table?  :objects do
   String      :path         , null: true    , text: true
     # JSON ['dir','dir','file']
   Time        :created_at   , null: true    # (mtime)
-  TrueClass   :removed      , null: false
+  TrueClass   :removed      , null: false  # TODO probably instead of calling it removed, it'd be better to call it owned
 end
