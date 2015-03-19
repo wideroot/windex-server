@@ -14,6 +14,8 @@ DB.create_table?  :indices do
   TrueClass   :removed      , null: false
   foreign_key :user_id
   String      :name         , null: false   , text: false
+  # TODO name is private, display_name is public, display_name can be changed
+  String      :display_name , null: false   , text: false
   TrueClass   :anon         , null: false
   TrueClass   :hidden       , null: false
   TrueClass   :filename     , null: false
