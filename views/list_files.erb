@@ -1,7 +1,7 @@
-<h1>Files [<%= resp.from %>, +<%= resp.limit %>)</h1>
-<%= next_previous_list_files resp.from, resp.limit %>
-<%= create_table(%w(id size sha2-512),
+<h1>Files [<%= resp.from %>, +<%= resp.files.size %>)</h1>
+<%= next_previous_list_files resp.from, resp.limit, resp.files.size %>
+<%= create_table(%w(id size sha2_512),
   resp.files.map { |f| [f.link, f.size, f.sha2_512] }
 )
 %>
-<%= next_previous_list_files resp.from, resp.limit %>
+<%= next_previous_list_files resp.from, resp.limit, resp.files.size %>
