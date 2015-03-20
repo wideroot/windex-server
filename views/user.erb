@@ -1,3 +1,4 @@
+<!-- TODO this should be splitted into two templated... -->
 <h1>User <%= resp.user.link %></h1>
 <% if resp.show_all %>
 <%= create_rtable(%w(user mail list list list), [resp.user.username, resp.user.email, resp.user.public_indices_link, resp.user.all_indices_link, resp.user.root_indices_link]) %>

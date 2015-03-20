@@ -19,8 +19,6 @@ end
 
 class Object < Sequel::Model
   set_primary_key :id
-  plugin :serialization, :json
-  serialize_attributes  :json , :path
 end
 
 

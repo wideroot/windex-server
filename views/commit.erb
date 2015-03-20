@@ -9,7 +9,7 @@
 <% end %>
 
 <h1>Objects</h1>
-<%= create_table(%w(id file created_at removed name path),
-resp.objects.map { |object| [object.link, object.file_link, object.created_at, object.removed, object.name, object.path.inspect] }
+<%= create_table(%w(id file created_at removed filename resource_identifier),
+resp.objects.map { |object| [object.link, object.file_link, object.created_at, object.removed, object.filename, object.resource_identifier] }
                 )
 %>

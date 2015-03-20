@@ -1,5 +1,7 @@
+# TODO nulls should be explicity show
+
 def url_x s
-  s  # TODO srsly...
+  s  # TODO forward to sinatra url...
 end
 
 module Wix
@@ -41,6 +43,9 @@ class File
     #%Q{<a href="#{url_x ("/api/files/size/#{size}/sha2_512/#{sha2_512}")}">##{id}</a>}
   def link
     %Q{<a href="#{url_x ("/api/file/#{id}")}">##{id}</a>}
+  end
+  def short_sha2_512
+    sha2_512[0..16] + "..."
   end
 end
 

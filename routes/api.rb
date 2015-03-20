@@ -1,3 +1,6 @@
+# TODO api should not publish private information
+# TODO the server should accept fields that can't be publish to other users or nil values
+
 def authenticate!
   user = try_authenticate
   return user if user
@@ -17,7 +20,7 @@ end
 
 
 
-# TODO post '/close_index/:index_name' do |index_name|
+# TODO add post '/api/remove/:index_name' do |index_name|
 # end
 
 post '/api/push/:index_name' do |index_name|
@@ -72,10 +75,11 @@ def push_commits user, index_name, commits
           raise "Index already exists"
         end
         # check if we need to upload the index
+           index.display_name != ic['display_name'] ||
         if index.anon != ic['anon'] ||
            index.hidden != ic['hidden'] ||
            index.filename != ic['filename'] ||
-           index.path != ic['path'] ||
+           index.resource_identifier != ic['resource_identifier'] ||
            index.push_time != ic['push_time'] ||
            index.commit_time != ic['commit_time'] ||
            index.message !=  ic['message'] ||
@@ -84,7 +88,13 @@ def push_commits user, index_name, commits
             # if force_no_update and but ic doesn't match index raise an error
             raise "Index must be updateds"
           end
-          index.removed = true
+          if index.removed
+            # if index was removed, the next is going to be a root_index
+            # so we force last_index to be nil
+            last_index = nil 
+          else
+            index.removed = true
+          end
           index.removed_at = pushed_at
           index.save
           index = nil
@@ -100,10 +110,11 @@ def push_commits user, index_name, commits
           removed:      false,
           user_id:      user.id,
           name:         index_name,
+          display_name: ic['display_name'],
           anon:         ic['anon'],
           hidden:       ic['hidden'],
           filename:     ic['filename'],
-          path:         ic['path'],
+          resource_identifier:   ic['resource_identifier'],
           push_time:    ic['push_time'],
           commit_time:  ic['commit_time'],
           message:      ic['message'],
@@ -146,8 +157,8 @@ def push_commits user, index_name, commits
         object_id = Wix::Object.insert(
           file_id: file.id,
           commit_id: c.id,
-          name: object['name'],
-          path: object['path'].to_json,
+          filename: object['filename'],
+          resource_identifier: object['resource_identifier'],
           created_at: utc_time_at(object['created_at']),
           removed: object['removed'],
         )
@@ -201,7 +212,7 @@ end
 get '/api/user/:user/public_indices' do |user|
   user = get_user(user)
   indices = Wix::Index
-    .select(:id, :name, :removed)
+    .select(:id, :display_name, :removed)
     .where(user_id: user.id, anon: false, hidden: false)
     .all
   te :user_public_indices, {user: user, indices: indices}
@@ -212,7 +223,7 @@ get '/api/user/:user/all_indices' do |user|
   user = get_user(user)
   permissions!(user_auth, user)
   indices = Wix::Index
-    .select(:id, :name, :removed, :created_at, :removed_at, :updated_at, :from_index_id, :root_index_id)
+    .select(:id, :name, :display_name, :removed, :created_at, :removed_at, :updated_at, :from_index_id, :root_index_id)
     .where(user_id: user.id)
     .order_by(Sequel.desc(:id))
     .all
@@ -224,7 +235,7 @@ get '/api/user/:user/root_indices' do |user|
   user = get_user(user)
   permissions!(user_auth, user)
   indices = Wix::Index
-    .select(:id, :name, :removed, :created_at, :removed_at, :updated_at, :root_index_id)
+    .select(:id, :name, :display_name, :removed, :created_at, :removed_at, :updated_at, :root_index_id)
     .where(user_id: user.id, root_index_id: :id)
     .order_by(Sequel.asc(:id))
     .all
@@ -328,10 +339,13 @@ get '/api/root_index/:index_id' do |index_id|
 end
 
 =begin
+TODO 
+api links should return json objects
+think in the routes of the webapp (probably based in /user/:display_name)
+Add
 log/object
 diff/commit/commit
 stats/file
-TODO id mechanism is not safe...
 =end
 
 

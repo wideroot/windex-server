@@ -1,7 +1,6 @@
 <h1>File <%= resp.file.link %></h1>
-<%= create_rtable(%w(size sha2-512), [resp.file.size, resp.file.sha2_512]) %>
+<%= create_rtable(%w(size sha2_512), [resp.file.size, resp.file.sha2_512]) %>
 
-<%= create_table(%w(object-id commit-id removed created_at name path),
-resp.objects.map { |o| [o.link, o.commit_link, o.removed, o.created_at.to_s, o.name, o.path.inspect ] }
-#resp.objects.map { |o| [o.link, o.commit_link, o.removed, o.created_at, o.name, o.path] }
+<%= create_table(%w(object-id commit-id removed created_at filename resource_identifier),
+resp.objects.map { |o| [o.link, o.commit_link, o.removed, o.created_at.to_s, o.filename, o.resource_identifier] }
 )%>

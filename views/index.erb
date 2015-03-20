@@ -1,19 +1,19 @@
 <h1>Index <%= resp.index.link %></h1>
-<%= create_table(%w(id index-name root-index from next removed user),
-[resp.index.link, resp.index.name, resp.index.root_link, resp.index.from_link, resp.index.next_link, resp.index.removed, resp.user ? resp.user.link : nil]
+<%= create_table(%w(id index-name root_index from_index next removed user),
+[resp.index.link, resp.index.display_name, resp.index.root_link, resp.index.from_link, resp.index.next_link, resp.index.removed, resp.user ? resp.user.link : nil]
                  )
 %>
 
 <h3>Config</h3>
-<%= create_table(%w(anon hidden filename path push_time commit_time message file_time),
-[resp.index.anon, resp.index.hidden, resp.index.filename, resp.index.path, resp.index.push_time, resp.index.commit_time, resp.index.message, resp.index.file_time]
+<%= create_table(%w(anon hidden filename resource_identifier push_time commit_time message file_time),
+[resp.index.anon, resp.index.hidden, resp.index.filename, resp.index.resource_identifier, resp.index.push_time, resp.index.commit_time, resp.index.message, resp.index.file_time]
                  )
 %>
 
 <br />
 
 <h2>Commits</h2>
-<%= create_table(%w(id commited-at pushed-at message),
+<%= create_table(%w(id commited_at pushed_at message),
 resp.commits.map { |commit| [commit.link, commit.commited_at, commit.pushed_at, commit.message] }
                 )
 %>
